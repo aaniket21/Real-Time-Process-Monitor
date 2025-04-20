@@ -1,0 +1,13 @@
+flask
+flask-cors
+flask-socketio
+psutil
+python-engineio
+python-socketio
+requests
+eventlet
+gunicorn
+python-dotenv
+colorama
+google-generativeai
+vertexai 

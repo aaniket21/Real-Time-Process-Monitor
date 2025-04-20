@@ -1,0 +1,790 @@
+# Process Monitoring Dashboard - Technical Report
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [System Architecture](#system-architecture)
+3. [Backend Implementation](#backend-implementation)
+4. [Frontend Implementation](#frontend-implementation)
+5. [System Metrics Collection](#system-metrics-collection)
+6. [Process Management](#process-management)
+7. [Data Visualization](#data-visualization)
+8. [AI Integration](#ai-integration)
+9. [Security Considerations](#security-considerations)
+10. [Performance Optimizations](#performance-optimizations)
+11. [Conclusion](#conclusion)
+
+## Introduction
+
+The Process Monitoring Dashboard is a web-based application designed to provide real-time monitoring and management of system processes. It offers a comprehensive view of system performance metrics, including CPU usage, memory consumption, disk utilization, and network activity. The application allows users to view, search, and manage running processes with the ability to terminate processes and adjust priorities.
+
+This technical report details the implementation of the Process Monitoring Dashboard, focusing on the backend architecture, system calls, algorithms, and data collection methods used to gather and process system information.
+
+## System Architecture
+
+The Process Monitoring Dashboard follows a client-server architecture:
+
+- **Backend**: Python-based Flask web server that handles API requests and system operations
+- **Frontend**: HTML, CSS, and JavaScript-based web interface that displays system metrics and process information
+- **Data Flow**: The backend collects system metrics and process information, which is then sent to the frontend via RESTful API endpoints and WebSocket connections
+
+### Technology Stack
+
+#### Backend
+- **Python 3.x**: Core programming language
+- **Flask**: Lightweight web framework for handling HTTP requests
+- **psutil**: Cross-platform library for retrieving information on running processes and system utilization
+- **Socket.IO**: Real-time bidirectional communication between web clients and servers
+- **Google Gemini API**: AI-powered analysis of system and process data
+
+#### Frontend
+- **HTML5**: Structure of the web interface
+- **Tailwind CSS**: Utility-first CSS framework for styling
+- **JavaScript (ES6+)**: Client-side scripting for dynamic content and interactivity
+- **Chart.js**: JavaScript library for creating interactive charts and graphs
+- **Socket.IO Client**: Real-time communication with the backend
+
+## Backend Implementation
+
+The backend of the Process Monitoring Dashboard is implemented using Flask, a lightweight web framework for Python. The application is structured as follows:
+
+### Application Structure
+
+```
+Process-Monitoring-Dashboard/
+├── app.py                  # Main application file with routes and core functionality
+├── static/                 # Static assets
+│   └── js/                 # JavaScript files
+│       └── app.js          # Frontend application logic
+├── templates/              # HTML templates
+│   └── index.html          # Main dashboard page
+└── requirements.txt        # Python dependencies
+```
+
+### Key Components
+
+1. **app.py**: Contains all backend functionality including:
+   - API endpoints for process management
+   - System metrics collection
+   - WebSocket server for real-time updates
+   - AI analysis integration
+
+2. **static/js/app.js**: Contains all frontend functionality including:
+   - WebSocket client for real-time updates
+   - Chart initialization and updates
+   - Process table management
+   - User interface interactions
+
+### API Endpoints
+
+The backend provides the following RESTful API endpoints:
+
+- **GET /**: Renders the main dashboard page
+- **GET /processes**: Returns a list of running processes
+- **POST /priority**: Changes the priority of a specific process
+- **POST /kill**: Terminates a specific process
+- **GET /analyze_process/<pid>**: Analyzes a specific process using AI
+- **GET /analyze_system**: Analyzes the entire system using AI
+- **GET /system_history**: Returns historical system metrics for initial graph population
+
+## System Metrics Collection
+
+The Process Monitoring Dashboard uses the `psutil` library to collect system metrics. This section details the system calls and algorithms used to gather and process system information.
+
+### CPU Usage
+
+CPU usage is collected using the `psutil.cpu_percent()` function, which returns the CPU utilization as a percentage. The function works as follows:
+
+1. **System Call**: `psutil.cpu_percent()` internally uses the following system calls:
+   - On Linux: `/proc/stat` file to read CPU statistics
+   - On Windows: `GetSystemTimes()` function from the Windows API
+   - On macOS: `host_cpu_load_info()` function from the Mach API
+
+2. **Algorithm**: The CPU usage is calculated by:
+   - Reading the CPU time spent in different states (user, system, idle, etc.)
+   - Calculating the difference between two consecutive readings
+   - Computing the percentage of time spent in non-idle states
+
+3. **Implementation**:
+   ```python
+   cpu_percent = psutil.cpu_percent(interval=0.1)
+   ```
+
+### Memory Usage
+
+Memory usage is collected using the `psutil.virtual_memory()` function, which returns information about system memory. The function works as follows:
+
+1. **System Call**: `psutil.virtual_memory()` internally uses the following system calls:
+   - On Linux: `/proc/meminfo` file to read memory statistics
+   - On Windows: `GlobalMemoryStatusEx()` function from the Windows API
+   - On macOS: `host_vm_info()` function from the Mach API
+
+2. **Algorithm**: The memory usage is calculated by:
+   - Reading the total, available, and used memory
+   - Computing the percentage of memory used
+
+3. **Implementation**:
+   ```python
+   memory = psutil.virtual_memory()
+   ```
+
+### Disk Usage
+
+Disk usage is collected using the `psutil.disk_usage()` function, which returns information about disk space. The function works as follows:
+
+1. **System Call**: `psutil.disk_usage()` internally uses the following system calls:
+   - On Linux: `statvfs()` function
+   - On Windows: `GetDiskFreeSpaceEx()` function from the Windows API
+   - On macOS: `statfs()` function
+
+2. **Algorithm**: The disk usage is calculated by:
+   - Reading the total, used, and free disk space
+   - Computing the percentage of disk space used
+
+3. **Implementation**:
+   ```python
+   system_drive = os.getenv('SystemDrive', 'C:').rstrip(':')
+   disk = psutil.disk_usage(system_drive + ':\\')
+   ```
+
+### Network Usage
+
+Network usage is collected using the `psutil.net_io_counters()` function, which returns information about network I/O. The function works as follows:
+
+1. **System Call**: `psutil.net_io_counters()` internally uses the following system calls:
+   - On Linux: `/proc/net/dev` file to read network statistics
+   - On Windows: `GetIfTable()` and `GetIfEntry()` functions from the Windows API
+   - On macOS: `sysctl()` function with `CTL_NET` and `NET_RT_IFLIST` parameters
+
+2. **Algorithm**: The network usage is calculated by:
+   - Reading the bytes sent and received
+   - Computing the total network traffic
+
+3. **Implementation**:
+   ```python
+   network = psutil.net_io_counters()
+   ```
+
+### Process Information
+
+Process information is collected using the `psutil.process_iter()` function, which returns an iterator over all running processes. The function works as follows:
+
+1. **System Call**: `psutil.process_iter()` internally uses the following system calls:
+   - On Linux: `/proc` filesystem to read process information
+   - On Windows: `CreateToolhelp32Snapshot()`, `Process32First()`, and `Process32Next()` functions from the Windows API
+   - On macOS: `proc_listallpids()` and `proc_pidinfo()` functions from the Mach API
+
+2. **Algorithm**: The process information is collected by:
+   - Iterating over all running processes
+   - Reading process attributes (PID, name, username, CPU usage, memory usage, threads, start time)
+   - Handling exceptions for processes that cannot be accessed
+
+3. **Implementation**:
+   ```python
+   processes = []
+   for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'username', 'num_threads', 'create_time']):
+       try:
+           pinfo = proc.info
+           processes.append({
+               'pid': pinfo['pid'],
+               'name': pinfo['name'],
+               'cpu_percent': round(pinfo['cpu_percent'], 1),
+               'memory_percent': round(pinfo['memory_percent'], 1),
+               'user': pinfo['username'],
+               'threads': pinfo['num_threads'],
+               'start_time': datetime.fromtimestamp(pinfo['create_time']).strftime('%Y-%m-%d %H:%M:%S')
+           })
+       except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+           pass
+   ```
+
+## Process Management
+
+The Process Monitoring Dashboard allows users to manage running processes, including terminating processes and adjusting priorities. This section details the system calls and algorithms used for process management.
+
+### Process Termination
+
+Process termination is implemented using the `psutil.Process.terminate()` method, which sends a SIGTERM signal to the process. The function works as follows:
+
+1. **System Call**: `psutil.Process.terminate()` internally uses the following system calls:
+   - On Linux: `kill(pid, SIGTERM)` function
+   - On Windows: `TerminateProcess()` function from the Windows API
+   - On macOS: `kill(pid, SIGTERM)` function
+
+2. **Algorithm**: The process termination is performed by:
+   - Getting the process object using the PID
+   - Sending a termination signal to the process
+   - Handling exceptions for non-existent processes or access denied errors
+
+3. **Implementation**:
+   ```python
+   try:
+       process = psutil.Process(pid)
+       process.terminate()
+       return jsonify({'message': f'Process {pid} terminated successfully'})
+   except psutil.NoSuchProcess:
+       return jsonify({'error': f'No process found with PID {pid}'}), 404
+   except psutil.AccessDenied:
+       return jsonify({'error': f'Access denied to terminate process {pid}'}), 403
+   except Exception as e:
+       return jsonify({'error': str(e)}), 500
+   ```
+
+### Process Priority Adjustment
+
+Process priority adjustment is implemented using the `psutil.Process.nice()` method, which sets the process priority (nice value). The function works as follows:
+
+1. **System Call**: `psutil.Process.nice()` internally uses the following system calls:
+   - On Linux: `setpriority(PRIO_PROCESS, pid, nice_value)` function
+   - On Windows: `SetPriorityClass()` function from the Windows API
+   - On macOS: `setpriority(PRIO_PROCESS, pid, nice_value)` function
+
+2. **Algorithm**: The process priority adjustment is performed by:
+   - Getting the process object using the PID
+   - Adjusting the nice value based on the action (raise or lower)
+   - Setting the process priority using the nice value
+   - Handling exceptions for non-existent processes or access denied errors
+
+3. **Implementation**:
+   ```python
+   try:
+       process = psutil.Process(pid)
+       current_nice = process.nice()
+       
+       if action == 'lower':
+           new_nice = min(19, current_nice + 5)
+       else:  # raise
+           new_nice = max(-20, current_nice - 5)
+           
+       process.nice(new_nice)
+       return jsonify({'message': f'Process {pid} priority changed successfully'})
+   except psutil.NoSuchProcess:
+       return jsonify({'error': f'No process found with PID {pid}'}), 404
+   except psutil.AccessDenied:
+       return jsonify({'error': f'Access denied to change priority of process {pid}'}), 403
+   except Exception as e:
+       return jsonify({'error': str(e)}), 500
+   ```
+
+## Frontend Implementation
+
+The frontend of the Process Monitoring Dashboard is implemented using HTML, CSS, and JavaScript. The application uses Tailwind CSS for styling and Chart.js for data visualization.
+
+### Key Components
+
+1. **index.html**: Main dashboard page that displays system metrics and process information
+2. **app.js**: JavaScript file that handles data fetching, processing, and visualization
+
+### Data Fetching and Processing
+
+The frontend fetches data from the backend using the Fetch API and processes it for display. The data fetching and processing is implemented as follows:
+
+1. **Data Fetching**:
+   ```javascript
+   async function refreshProcesses() {
+       try {
+           const response = await axios.get('http://localhost:5000/processes');
+           processes = response.data;
+           
+           // Maintain current search filter
+           if (searchTerm) {
+               filterProcesses(searchTerm);
+           } else if (currentSort.column) {
+               sortTable(currentSort.column);
+           } else {
+               updateProcessTable(processes);
+           }
+       } catch (error) {
+           console.error('Error fetching processes:', error);
+       }
+   }
+   ```
+
+2. **Data Processing**:
+   - Process information is processed for display in a table
+   - System metrics are processed for display in charts
+   - AI analysis results are processed for display in modals
+
+### Data Visualization
+
+The frontend uses Chart.js to visualize system metrics. The data visualization is implemented as follows:
+
+1. **Chart Initialization**:
+   ```javascript
+   function createChart(ctx, label, color) {
+       return new Chart(ctx, {
+           type: 'line',
+           data: {
+               labels: [],
+               datasets: [{
+                   label: label,
+                   data: [],
+                   borderColor: color,
+                   tension: 0.1,
+                   fill: false
+               }]
+           },
+           options: {
+               responsive: true,
+               maintainAspectRatio: false,
+               scales: {
+                   x: {
+                       type: 'time',
+                       time: {
+                           unit: 'second',
+                           displayFormats: {
+                               second: 'HH:mm:ss'
+                           }
+                       },
+                       ticks: {
+                           maxTicksLimit: 10
+                       }
+                   },
+                   y: {
+                       beginAtZero: true,
+                       suggestedMax: label.includes('Network') ? undefined : 100,
+                       ticks: {
+                           callback: function(value) {
+                               if (label.includes('Network')) {
+                                   return (value / 1024).toFixed(2) + ' KB';
+                               }
+                               return value + '%';
+                           }
+                       }
+                   }
+               },
+               plugins: {
+                   legend: {
+                       display: true
+                   }
+               },
+               animation: {
+                   duration: 0
+               }
+           }
+       });
+   }
+   ```
+
+2. **Chart Updates**:
+   ```javascript
+   function updateCharts(data) {
+       if (!data) return;
+       
+       const timestamp = new Date(data.time);
+       
+       // Update CPU chart
+       if (typeof data.cpu === 'number') {
+           cpuChart.data.labels.push(timestamp);
+           cpuChart.data.datasets[0].data.push(parseFloat(data.cpu.toFixed(1)));
+           if (cpuChart.data.labels.length > 60) {
+               cpuChart.data.labels.shift();
+               cpuChart.data.datasets[0].data.shift();
+           }
+           cpuChart.update('none');
+       }
+
+       // Update Memory chart
+       if (typeof data.memory === 'number') {
+           memoryChart.data.labels.push(timestamp);
+           memoryChart.data.datasets[0].data.push(parseFloat(data.memory.toFixed(1)));
+           if (memoryChart.data.labels.length > 60) {
+               memoryChart.data.labels.shift();
+               memoryChart.data.datasets[0].data.shift();
+           }
+           memoryChart.update('none');
+       }
+
+       // Update Disk chart
+       if (typeof data.disk === 'number') {
+           diskChart.data.labels.push(timestamp);
+           diskChart.data.datasets[0].data.push(parseFloat(data.disk.toFixed(1)));
+           if (diskChart.data.labels.length > 60) {
+               diskChart.data.labels.shift();
+               diskChart.data.datasets[0].data.shift();
+           }
+           diskChart.update('none');
+       }
+
+       // Update Network chart
+       if (typeof data.network === 'number') {
+           networkChart.data.labels.push(timestamp);
+           networkChart.data.datasets[0].data.push(parseFloat((data.network / 1024).toFixed(2)));
+           if (networkChart.data.labels.length > 60) {
+               networkChart.data.labels.shift();
+               networkChart.data.datasets[0].data.shift();
+           }
+           networkChart.update('none');
+       }
+   }
+   ```
+
+### Process Table Management
+
+The frontend manages the process table, including sorting, filtering, and selection. The process table management is implemented as follows:
+
+1. **Process Filtering**:
+   ```javascript
+   function filterProcesses(term) {
+       searchTerm = term.toLowerCase();
+       filteredProcesses = processes.filter(process => 
+           process.name.toLowerCase().includes(searchTerm) ||
+           process.pid.toString().includes(searchTerm) ||
+           process.user.toLowerCase().includes(searchTerm)
+       );
+       
+       // If there's a current sort, maintain it
+       if (currentSort.column) {
+           sortProcesses(filteredProcesses);
+       }
+       
+       updateProcessTable(filteredProcesses);
+   }
+   ```
+
+2. **Process Sorting**:
+   ```javascript
+   function sortProcesses(processesToSort) {
+       return processesToSort.sort((a, b) => {
+           let aValue = a[currentSort.column];
+           let bValue = b[currentSort.column];
+
+           // Handle numeric values
+           if (currentSort.column === 'pid' || 
+               currentSort.column === 'cpu_percent' || 
+               currentSort.column === 'memory_percent' || 
+               currentSort.column === 'threads') {
+               aValue = parseFloat(aValue);
+               bValue = parseFloat(bValue);
+           }
+
+           if (aValue < bValue) return -1 * currentSort.direction;
+           if (aValue > bValue) return 1 * currentSort.direction;
+           return 0;
+       });
+   }
+   ```
+
+3. **Process Table Update**:
+   ```javascript
+   function updateProcessTable(processesToShow = processes) {
+       const tableBody = document.getElementById('processTable');
+       tableBody.innerHTML = '';
+
+       processesToShow.forEach(process => {
+           const row = document.createElement('tr');
+           row.className = 'dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer';
+           if (process.pid === selectedPid) {
+               row.classList.add('bg-blue-100', 'dark:bg-blue-900');
+           }
+           
+           row.innerHTML = `
+               <td class="px-6 py-4 whitespace-nowrap">${process.pid}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.name}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.cpu_percent}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.memory_percent}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.user}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.threads}</td>
+               <td class="px-6 py-4 whitespace-nowrap">${process.start_time}</td>
+               <td class="px-6 py-4 whitespace-nowrap">
+                   <div class="flex space-x-2">
+                       <button onclick="showKillModal(${process.pid}); event.stopPropagation();" 
+                               class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700">
+                           Kill
+                       </button>
+                       <button onclick="analyzeProcess(${process.pid}); event.stopPropagation();" 
+                               class="px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700">
+                           Analyze
+                       </button>
+                   </div>
+               </td>
+           `;
+           row.addEventListener('click', () => selectProcess(process.pid));
+           tableBody.appendChild(row);
+       });
+
+       // Update the search input placeholder with count
+       const searchInput = document.getElementById('searchInput');
+       searchInput.placeholder = `Search ${processesToShow.length} processes...`;
+   }
+   ```
+
+### Theme Management
+
+The frontend supports light and dark themes, which are managed using JavaScript and CSS. The theme management is implemented as follows:
+
+1. **Theme Toggling**:
+   ```javascript
+   function toggleTheme() {
+       if (document.documentElement.classList.contains('dark')) {
+           document.documentElement.classList.remove('dark');
+           localStorage.setItem('theme', 'light');
+       } else {
+           document.documentElement.classList.add('dark');
+           localStorage.setItem('theme', 'dark');
+       }
+   }
+   ```
+
+2. **Theme Initialization**:
+   ```javascript
+   // Check for saved theme preference
+   if (localStorage.getItem('theme') === 'dark' || 
+       (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+       document.documentElement.classList.add('dark');
+   }
+   ```
+
+## AI Integration
+
+The Process Monitoring Dashboard integrates with Google's Gemini API to provide AI-powered analysis of system and process data. The AI integration is implemented as follows:
+
+### API Configuration
+
+The Gemini API is configured with the following parameters:
+
+```python
+GEMINI_API_KEY = "AIzaSyBNbBWGEkJA57LKquLENQFXG9lK--xNjE8"
+GEMINI_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+```
+
+### API Call Function
+
+The API call function is implemented as follows:
+
+```python
+def call_gemini_api(prompt):
+    """Call Gemini API directly using the REST endpoint"""
+    try:
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            "contents": [{
+                "parts": [{"text": str(prompt)}]
+            }]
+        }
+        
+        # Ensure proper JSON encoding of the request
+        json_data = json.dumps(data, ensure_ascii=False)
+        
+        response = requests.post(
+            f"{GEMINI_API_ENDPOINT}?key={GEMINI_API_KEY}",
+            headers=headers,
+            json=data  # Use json parameter instead of data for proper JSON encoding
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Extract the text from the response
+            if 'candidates' in result and len(result['candidates']) > 0:
+                if 'content' in result['candidates'][0]:
+                    if 'parts' in result['candidates'][0]['content']:
+                        if len(result['candidates'][0]['content']['parts']) > 0:
+                            if 'text' in result['candidates'][0]['content']['parts'][0]:
+                                return result['candidates'][0]['content']['parts'][0]['text']
+        
+        return f"Error: {response.text}"
+    except Exception as e:
+        return f"Error calling Gemini API: {str(e)}"
+```
+
+### Process Analysis
+
+The process analysis is implemented as follows:
+
+```python
+def analyze_process_behavior(process_data):
+    """Analyze process behavior using AI"""
+    try:
+        prompt = f"""
+        Analyze this process data and provide insights:
+        Process: {process_data['name']}
+        CPU Usage: {process_data['cpu_percent']}%
+        Memory Usage: {process_data['memory_percent']}%
+        Threads: {process_data['threads']}
+        Start Time: {process_data['start_time']}
+        
+        Provide:
+        1. Resource usage analysis
+        2. Potential performance issues
+        3. Recommendations for optimization
+        """
+        
+        return call_gemini_api(prompt)
+    except Exception as e:
+        return f"Error analyzing process: {str(e)}"
+```
+
+### Anomaly Detection
+
+The anomaly detection is implemented as follows:
+
+```python
+def detect_anomalies(process_data):
+    """Detect anomalous process behavior"""
+    try:
+        prompt = f"""
+        Analyze this process for anomalies:
+        Process: {process_data['name']}
+        CPU Usage: {process_data['cpu_percent']}%
+        Memory Usage: {process_data['memory_percent']}%
+        Threads: {process_data['threads']}
+        
+        Identify if this behavior is normal or anomalous.
+        """
+        
+        return call_gemini_api(prompt)
+    except Exception as e:
+        return f"Error detecting anomalies: {str(e)}"
+```
+
+### Process Recommendations
+
+The process recommendations are implemented as follows:
+
+```python
+def get_process_recommendations(process_data):
+    """Get AI-powered process management recommendations"""
+    try:
+        prompt = f"""
+        Provide recommendations for this process:
+        Process: {process_data['name']}
+        CPU Usage: {process_data['cpu_percent']}%
+        Memory Usage: {process_data['memory_percent']}%
+        Threads: {process_data['threads']}
+        
+        Suggest:
+        1. Priority adjustments
+        2. Resource optimization
+        3. Potential issues to watch for
+        """
+        
+        return call_gemini_api(prompt)
+    except Exception as e:
+        return f"Error generating recommendations: {str(e)}"
+```
+
+### System Analysis
+
+The system analysis is implemented as follows:
+
+```python
+@app.route('/analyze_system', methods=['GET'])
+def analyze_system():
+    try:
+        # Get system-wide metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        
+        # Get disk information
+        try:
+            system_drive = os.getenv('SystemDrive', 'C:').rstrip(':')  # Remove colon
+            disk = psutil.disk_usage(system_drive + ':\\')  # Use proper Windows path format
+        except Exception as disk_error:
+            print(f"Error getting disk usage in analyze_system: {str(disk_error)}")
+            disk = type('obj', (object,), {'percent': 0.0})
+            
+        network = psutil.net_io_counters()
+        
+        # Get top processes by CPU and memory
+        top_cpu_processes = []
+        top_memory_processes = []
+        
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+            try:
+                pinfo = proc.info
+                if pinfo['cpu_percent'] is not None:
+                    top_cpu_processes.append({
+                        'pid': pinfo['pid'],
+                        'name': pinfo['name'],
+                        'cpu_percent': round(float(pinfo['cpu_percent']), 1)
+                    })
+                if pinfo['memory_percent'] is not None:
+                    top_memory_processes.append({
+                        'pid': pinfo['pid'],
+                        'name': pinfo['name'],
+                        'memory_percent': round(float(pinfo['memory_percent']), 1)
+                    })
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, ValueError):
+                continue
+        
+        # Sort by usage
+        top_cpu_processes.sort(key=lambda x: x['cpu_percent'], reverse=True)
+        top_memory_processes.sort(key=lambda x: x['memory_percent'], reverse=True)
+        
+        # Take top 5
+        top_cpu_processes = top_cpu_processes[:5]
+        top_memory_processes = top_memory_processes[:5]
+        
+        # Prepare data for AI analysis
+        system_data = {
+            'cpu_percent': float(cpu_percent),
+            'memory_percent': float(memory.percent),
+            'disk_percent': float(disk.percent),
+            'network_bytes_sent': int(network.bytes_sent),
+            'network_bytes_recv': int(network.bytes_recv),
+            'top_cpu_processes': top_cpu_processes,
+            'top_memory_processes': top_memory_processes
+        }
+        
+        # Generate AI analysis
+        prompt = f"""
+        Analyze this system data and provide insights:
+        
+        System Metrics:
+        - CPU Usage: {system_data['cpu_percent']:.1f}%
+        - Memory Usage: {system_data['memory_percent']:.1f}%
+        - Disk Usage: {system_data['disk_percent']:.1f}%
+        - Network: {system_data['network_bytes_sent']} bytes sent, {system_data['network_bytes_recv']} bytes received
+        
+        Top CPU Processes:
+        {', '.join([f"{p['name']} ({p['cpu_percent']:.1f}%)" for p in system_data['top_cpu_processes']])}
+        
+        Top Memory Processes:
+        {', '.join([f"{p['name']} ({p['memory_percent']:.1f}%)" for p in system_data['top_memory_processes']])}
+        
+        Provide:
+        1. Overall system health assessment
+        2. Resource usage analysis
+        3. Potential performance bottlenecks
+        4. Recommendations for optimization
+        5. Security considerations
+        """
+        
+        analysis = call_gemini_api(prompt)
+        
+        return jsonify({
+            'analysis': analysis,
+            'system_data': system_data
+        })
+    except Exception as e:
+        print(f"Error in analyze_system: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+```
+
+## Security Considerations
+
+The Process Monitoring Dashboard implements several security measures to protect against unauthorized access and malicious actions:
+
+1. **Input Validation**: All API endpoints validate input data to prevent injection attacks
+2. **Process Termination Confirmation**: A confirmation modal is displayed before terminating a process
+3. **Error Handling**: Comprehensive error handling is implemented to prevent application crashes
+4. **Access Control**: Process operations (termination, priority adjustment) are protected by appropriate permissions
+
+## Performance Optimizations
+
+The Process Monitoring Dashboard implements several performance optimizations to ensure efficient operation:
+
+1. **Efficient DOM Updates**: Template literals are used for efficient DOM updates
+2. **Debounced Search**: Search functionality is debounced to prevent excessive DOM updates
+3. **Optimized Chart Rendering**: Charts are rendered with a limited number of data points
+4. **Lazy Loading**: Non-critical resources are loaded lazily to improve initial load time
+
+## Conclusion
+
+The Process Monitoring Dashboard is a comprehensive web-based application for monitoring and managing system processes. It provides real-time insights into system performance and process information, allowing users to view, search, and manage running processes.
+
+The application is built using modern web technologies, including Flask, psutil, Socket.IO, Tailwind CSS, and Chart.js. It implements efficient algorithms for collecting and processing system metrics, and provides a responsive and intuitive user interface.
+
+The Process Monitoring Dashboard demonstrates the power of Python and web technologies for system monitoring and management, offering a user-friendly alternative to traditional command-line tools. 
